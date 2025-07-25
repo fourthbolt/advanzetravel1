@@ -12,7 +12,7 @@
             <a href="/admin/users" class="nav-btn">Users</a>
             <a href="/admin/chat" class="nav-btn">Chat</a>
             <a href="/admin/updates" class="nav-btn active">Updates</a>
-            <a href="#" onclick="adminLogout()" class="nav-btn logout">Logout</a>
+            <a href="#" onclick="logout()" class="nav-btn logout">Logout</a>
         </div>
         
         <div class="updates-actions">
@@ -40,7 +40,7 @@
                         </td>
                         <td><%= update.title %></td>
                         <td><%= update.excerpt.substring(0, 100) %>...</td>
-                        <td><%= update.author ? update.author.name : 'Unknown' %></td>
+                        <td>Admin</td>
                         <td><%= new Date(update.createdAt).toLocaleDateString() %></td>
                         <td>
                             <span class="status-badge <%= update.isPublished ? 'published' : 'draft' %>">

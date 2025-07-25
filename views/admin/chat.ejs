@@ -12,7 +12,7 @@
             <a href="/admin/users" class="nav-btn">Users</a>
             <a href="/admin/chat" class="nav-btn active">Chat</a>
             <a href="/admin/updates" class="nav-btn">Updates</a>
-            <a href="#" onclick="adminLogout()" class="nav-btn logout">Logout</a>
+            <a href="#" onclick="logout()" class="nav-btn logout">Logout</a>
         </div>
         
         <div class="chat-management-container">
@@ -283,6 +283,10 @@ function adminLogout() {
     overflow: hidden;
     box-shadow: var(--shadow-lg);
     height: 600px;
+}
+
+.admin-chat-section .chat-widget {
+    display: none !important;
 }
 
 .chat-list {

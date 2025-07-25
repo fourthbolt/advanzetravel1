@@ -602,6 +602,11 @@ class AdvanceTravels {
     cancelBtn?.addEventListener('click', () => {
       this.closeModal('logoutModal');
     });
+    
+    // Global logout function for admin
+    window.adminLogout = () => {
+      this.openModal('logoutModal');
+    };
   }
 
   // Testimonials
@@ -689,7 +694,11 @@ class AdvanceTravels {
   openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-      modal.style.display = 'flex';
+      if (modalId === 'logoutModal') {
+        modal.classList.add('active');
+      } else {
+        modal.style.display = 'flex';
+      }
       modal.querySelector('.modal-content')?.classList.add('modal-enter');
       document.body.style.overflow = 'hidden';
     }
@@ -698,13 +707,18 @@ class AdvanceTravels {
   closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-      const content = modal.querySelector('.modal-content');
-      content?.classList.add('modal-exit');
-      setTimeout(() => {
-        modal.style.display = 'none';
-        content?.classList.remove('modal-enter', 'modal-exit');
+      if (modalId === 'logoutModal') {
+        modal.classList.remove('active');
         document.body.style.overflow = '';
-      }, 300);
+      } else {
+        const content = modal.querySelector('.modal-content');
+        content?.classList.add('modal-exit');
+        setTimeout(() => {
+          modal.style.display = 'none';
+          content?.classList.remove('modal-enter', 'modal-exit');
+          document.body.style.overflow = '';
+        }, 300);
+      }
     }
   }
 

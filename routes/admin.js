@@ -204,7 +204,6 @@ router.get('/updates', requireAdmin, async (req, res) => {
     const totalPages = Math.ceil(totalUpdates / limit);
 
     const updates = await Update.find()
-      .populate('author', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -247,7 +246,7 @@ router.post('/updates', requireAdmin, upload.single('image'), [
       excerpt,
       content,
       image: req.file.filename,
-      author: req.session.admin.id
+      author: req.session.admin.id || 'admin'
     });
 
     await update.save();

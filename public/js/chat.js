@@ -263,16 +263,16 @@ class AdvancedChatSystem {
 
     if (!message || !this.socket) return;
 
-    // Display message immediately for better UX
+    // Create unique message data
+    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     const messageData = {
+      tempId: tempId,
       sessionId: this.sessionId,
       sender: this.userName,
       senderType: 'user',
       message: message,
       timestamp: new Date()
     };
-
-    this.displayMessage(messageData, true); // true for optimistic update
 
     // Send to server
     this.socket.emit('chat-message', messageData);

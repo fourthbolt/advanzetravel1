@@ -104,12 +104,6 @@ io.on('connection', (socket) => {
         timestamp: message.createdAt
       });
 
-      // Send confirmation to sender
-      socket.emit('message-sent', {
-        tempId: data.tempId,
-        messageId: message._id
-      });
-
     } catch (error) {
       console.error('Error saving chat message:', error);
       socket.emit('message-error', {
