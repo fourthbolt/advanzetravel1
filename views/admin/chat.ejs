@@ -20,7 +20,7 @@
                 <h3>Active Conversations</h3>
                 <div class="conversations-list">
                     <% chats.forEach(chat => { %>
-                    <div class="conversation-item" onclick="loadChat('<%= chat.user.sessionId %>')">
+                    <div class="conversation-item" onclick="loadChat('<%= chat.user.sessionId %>', '<%= chat.user.name %>', '<%= chat.user._id %>')">
                         <div class="user-info">
                             <h4><%= chat.user.name %></h4>
                             <p><%= chat.user.email %></p>
@@ -46,6 +46,10 @@
             <div class="chat-window">
                 <div id="chatHeader" class="chat-header" style="display: none;">
                     <h3 id="chatUserName">Select a conversation</h3>
+                    <div class="chat-status">
+                        <span id="connectionStatus" class="status-indicator offline">●</span>
+                        <span id="statusText">Offline</span>
+                    </div>
                 </div>
                 
                 <div id="chatMessages" class="chat-messages">
@@ -69,8 +73,35 @@
 const socket = io();
 let currentSessionId = null;
 let currentUser = null;
+let isConnected = false;
 
-function loadChat(sessionId) {
+// Connection status
+socket.on('connect', () => {
+    isConnected = true;
+    updateConnectionStatus(true);
+});
+
+socket.on('disconnect', () => {
+    isConnected = false;
+    updateConnectionStatus(false);
+});
+
+function updateConnectionStatus(connected) {
+    const statusIndicator = document.getElementById('connectionStatus');
+    const statusText = document.getElementById('statusText');
+    
+    if (statusIndicator && statusText) {
+        if (connected) {
+            statusIndicator.className = 'status-indicator online';
+            statusText.textContent = 'Online';
+        } else {
+            statusIndicator.className = 'status-indicator offline';
+            statusText.textContent = 'Offline';
+        }
+    }
+}
+
+function loadChat(sessionId, userName, userId) {
     fetch(`/admin/chat/${sessionId}`)
         .then(response => response.json())
         .then(data => {
@@ -79,7 +110,7 @@ function loadChat(sessionId) {
                 currentUser = data.user;
                 
                 // Update UI
-                document.getElementById('chatUserName').textContent = data.user.name;
+                document.getElementById('chatUserName').textContent = userName;
                 document.getElementById('chatHeader').style.display = 'block';
                 document.getElementById('chatInput').style.display = 'block';
                 
@@ -95,10 +126,17 @@ function loadChat(sessionId) {
                 socket.emit('join-room', sessionId);
                 
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // Mark conversation as active
+                document.querySelectorAll('.conversation-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                event.target.closest('.conversation-item').classList.add('active');
             }
         })
         .catch(error => {
             console.error('Error loading chat:', error);
+            showError('Failed to load chat messages');
         });
 }
 
@@ -107,15 +145,39 @@ function addMessageToChat(message) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${message.senderType}`;
     
+    const timeString = new Date(message.createdAt || message.timestamp).toLocaleString();
+    
     messageDiv.innerHTML = `
         <div class="message-content">
             <div class="message-text">${message.message}</div>
-            <div class="message-time">${new Date(message.createdAt || message.timestamp).toLocaleString()}</div>
+            <div class="message-time">${timeString}</div>
+            ${message.senderType === 'user' ? '<div class="message-sender">' + (currentUser?.name || 'User') + '</div>' : ''}
         </div>
     `;
     
     messagesContainer.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Update conversation list
+    updateConversationPreview(message);
+}
+
+function updateConversationPreview(message) {
+    const conversationItems = document.querySelectorAll('.conversation-item');
+    conversationItems.forEach(item => {
+        const sessionId = item.getAttribute('onclick').match(/'([^']+)'/)[1];
+        if (sessionId === message.sessionId) {
+            const lastMessageEl = item.querySelector('.last-message');
+            const timeEl = item.querySelector('.message-time');
+            
+            if (lastMessageEl) {
+                lastMessageEl.textContent = message.message.substring(0, 50) + '...';
+            }
+            if (timeEl) {
+                timeEl.textContent = new Date(message.createdAt || message.timestamp).toLocaleDateString();
+            }
+        }
+    });
 }
 
 // Send message
@@ -130,14 +192,20 @@ function sendMessage() {
     const input = document.getElementById('messageInput');
     const message = input.value.trim();
     
-    if (!message || !currentSessionId) return;
+    if (!message || !currentSessionId || !isConnected) {
+        if (!isConnected) {
+            showError('Not connected to server. Please wait...');
+        }
+        return;
+    }
     
     // Send message via socket
     socket.emit('chat-message', {
         sessionId: currentSessionId,
         sender: 'Admin',
         senderType: 'admin',
-        message: message
+        message: message,
+        timestamp: new Date()
     });
     
     input.value = '';
@@ -145,10 +213,55 @@ function sendMessage() {
 
 // Listen for incoming messages
 socket.on('chat-message', (data) => {
-    if (data.sessionId === currentSessionId || currentSessionId === null) {
+    if (data.sessionId === currentSessionId) {
         addMessageToChat(data);
+    } else {
+        // Update unread count for other conversations
+        updateUnreadCount(data.sessionId);
     }
 });
+
+function updateUnreadCount(sessionId) {
+    const conversationItems = document.querySelectorAll('.conversation-item');
+    conversationItems.forEach(item => {
+        const itemSessionId = item.getAttribute('onclick').match(/'([^']+)'/)[1];
+        if (itemSessionId === sessionId) {
+            let badge = item.querySelector('.unread-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'unread-badge';
+                badge.textContent = '1';
+                item.querySelector('.conversation-meta').appendChild(badge);
+            } else {
+                const count = parseInt(badge.textContent) + 1;
+                badge.textContent = count > 9 ? '9+' : count;
+            }
+        }
+    });
+}
+
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'admin-error';
+    errorDiv.textContent = message;
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        background: #ef4444;
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        z-index: 10000;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    `;
+    
+    document.body.appendChild(errorDiv);
+    
+    setTimeout(() => {
+        errorDiv.remove();
+    }, 5000);
+}
 
 function adminLogout() {
     fetch('/auth/logout', { method: 'POST' })
@@ -160,3 +273,245 @@ function adminLogout() {
         });
 }
 </script>
+<style>
+.chat-management-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2rem;
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    height: 600px;
+}
+
+.chat-list {
+    background: var(--background-light);
+    padding: 2rem;
+    border-right: 1px solid var(--border-color);
+}
+
+.chat-list h3 {
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+}
+
+.conversations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.conversation-item {
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: var(--transition-base);
+    border: 2px solid transparent;
+}
+
+.conversation-item:hover,
+.conversation-item.active {
+    background: rgba(30, 64, 175, 0.05);
+    border-color: var(--primary-color);
+}
+
+.user-info h4 {
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+
+.user-info p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin: 0;
+}
+
+.conversation-meta {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.last-message {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    flex: 1;
+}
+
+.message-time {
+    color: var(--text-light);
+    font-size: var(--font-size-xs);
+}
+
+.unread-badge {
+    background: var(--error-color);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-left: 0.5rem;
+}
+
+.chat-window {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header h3 {
+    margin: 0;
+    color: white;
+}
+
+.chat-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-sm);
+}
+
+.status-indicator {
+    font-size: 0.8rem;
+}
+
+.status-indicator.online {
+    color: #22c55e;
+}
+
+.status-indicator.offline {
+    color: #ef4444;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    background: var(--background-light);
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 4rem 2rem;
+}
+
+.message {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.message.user {
+    justify-content: flex-start;
+}
+
+.message.admin {
+    justify-content: flex-end;
+}
+
+.message-content {
+    max-width: 70%;
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.message.admin .message-content {
+    background: var(--primary-color);
+    color: white;
+}
+
+.message-text {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.message-time {
+    font-size: var(--font-size-xs);
+    opacity: 0.7;
+}
+
+.message-sender {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
+.chat-input-area {
+    padding: 1rem 2rem;
+    background: white;
+    border-top: 1px solid var(--border-color);
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 1rem;
+}
+
+.chat-input-container input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    outline: none;
+    font-size: var(--font-size-base);
+}
+
+.chat-input-container input:focus {
+    border-color: var(--primary-color);
+}
+
+.chat-input-container button {
+    padding: 0.75rem 2rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.chat-input-container button:hover {
+    background: var(--secondary-color);
+}
+
+.chat-input-container button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .chat-management-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    
+    .chat-list {
+        max-height: 300px;
+    }
+    
+    .chat-window {
+        min-height: 400px;
+    }
+}
+</style>

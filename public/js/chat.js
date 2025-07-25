@@ -577,7 +577,36 @@ class AdvancedChatSystem {
 // Additional CSS for enhanced chat styling
 const chatStyles = `
   .message.sending {
-    opacity: 0.7;
+    opacity: 0.6;
+    position: relative;
+  }
+  
+  .message.sending::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -20px;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--primary-color);
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .connection-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--error-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+  }
+  
+  .error-content {
+    color: var(--error-color);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
   }
 
   .typing-dots {

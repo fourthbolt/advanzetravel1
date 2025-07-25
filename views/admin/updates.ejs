@@ -216,6 +216,23 @@ document.getElementById('createUpdateForm').addEventListener('submit', async (e)
     e.preventDefault();
     
     const formData = new FormData(e.target);
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    // Validate required fields
+    const title = formData.get('title');
+    const excerpt = formData.get('excerpt');
+    const content = formData.get('content');
+    const image = formData.get('image');
+    
+    if (!title || !excerpt || !content || !image || image.size === 0) {
+        showNotification('Please fill in all required fields and select an image', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
     
     try {
         const response = await fetch('/admin/updates', {
@@ -228,12 +245,22 @@ document.getElementById('createUpdateForm').addEventListener('submit', async (e)
         if (result.success) {
             showNotification('Update created successfully!', 'success');
             document.getElementById('createUpdateModal').style.display = 'none';
+            e.target.reset();
             location.reload();
         } else {
-            showNotification(result.message || 'Failed to create update', 'error');
+            if (result.errors && result.errors.length > 0) {
+                const errorMessages = result.errors.map(err => err.msg).join(', ');
+                showNotification(errorMessages, 'error');
+            } else {
+                showNotification(result.message || 'Failed to create update', 'error');
+            }
         }
     } catch (error) {
+        console.error('Create update error:', error);
         showNotification('Network error. Please try again.', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
     }
 });
 

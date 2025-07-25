@@ -77,25 +77,54 @@ io.on('connection', (socket) => {
     const ChatMessage = require('./models/ChatMessage');
 
     try {
+      // Validate message data
+      if (!data.sessionId || !data.message || !data.senderType) {
+        console.error('Invalid message data:', data);
+        return;
+      }
+
       const message = new ChatMessage({
         sessionId: data.sessionId,
         sender: data.sender,
         senderType: data.senderType,
         message: data.message,
-        timestamp: new Date()
+        createdAt: new Date()
       });
 
       await message.save();
 
+      // Broadcast to all clients in the room
       io.to(data.sessionId).emit('chat-message', {
+        _id: message._id,
+        sessionId: data.sessionId,
         sender: data.sender,
         senderType: data.senderType,
         message: data.message,
-        timestamp: new Date()
+        createdAt: message.createdAt,
+        timestamp: message.createdAt
       });
+
+      // Send confirmation to sender
+      socket.emit('message-sent', {
+        tempId: data.tempId,
+        messageId: message._id
+      });
+
     } catch (error) {
       console.error('Error saving chat message:', error);
+      socket.emit('message-error', {
+        tempId: data.tempId,
+        error: 'Failed to send message'
+      });
     }
+  });
+
+  socket.on('user-typing', (data) => {
+    socket.to(data.sessionId).emit('user-typing', data);
+  });
+
+  socket.on('user-stopped-typing', (data) => {
+    socket.to(data.sessionId).emit('user-stopped-typing', data);
   });
 
   socket.on('disconnect', () => {
