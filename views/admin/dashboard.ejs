@@ -1,0 +1,181 @@
+
+
+<section class="admin-dashboard-section">
+    <div class="container">
+        <div class="admin-header">
+            <h1>Admin Dashboard</h1>
+            <p>Welcome back, <%= admin.name %></p>
+        </div>
+        
+        <div class="admin-nav">
+            <a href="/admin/dashboard" class="nav-btn active">Dashboard</a>
+            <a href="/admin/users" class="nav-btn">Users</a>
+            <a href="/admin/chat" class="nav-btn">Chat</a>
+            <a href="/admin/updates" class="nav-btn">Updates</a>
+            <a href="#" onclick="adminLogout()" class="nav-btn logout">Logout</a>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3><%= stats.totalUsers %></h3>
+                    <p>Total Users</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info">
+                    <h3><%= stats.activeUsers %></h3>
+                    <p>Active Users</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📋</div>
+                <div class="stat-info">
+                    <h3><%= stats.newApplications %></h3>
+                    <p>New Applications</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-info">
+                    <h3><%= stats.inReview %></h3>
+                    <p>In Review</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📰</div>
+                <div class="stat-info">
+                    <h3><%= stats.totalUpdates %></h3>
+                    <p>Published Updates</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recent-applications">
+            <h2>Recent Applications</h2>
+            <div class="applications-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Country</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% recentApplications.forEach(user => { %>
+                        <tr>
+                            <td><%= user.name %></td>
+                            <td><%= user.email %></td>
+                            <td><%= user.preferredCountry %></td>
+                            <td>
+                                <span class="status-badge <%= user.applicationStatus.toLowerCase().replace(/\s+/g, '-') %>">
+                                    <%= user.applicationStatus %>
+                                </span>
+                            </td>
+                            <td><%= new Date(user.createdAt).toLocaleDateString() %></td>
+                            <td>
+                                <button onclick="updateStatus('<%= user._id %>')" class="action-btn">Update</button>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Status Update Modal -->
+<div id="statusModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3>Update Application Status</h3>
+        <form id="statusUpdateForm">
+            <input type="hidden" id="userId">
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status" required>
+                    <option value="New">New</option>
+                    <option value="In Review">In Review</option>
+                    <option value="Documents Received">Documents Received</option>
+                    <option value="Interview Scheduled">Interview Scheduled</option>
+                    <option value="Visa Approved">Visa Approved</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="notes">Notes (Optional)</label>
+                <textarea id="notes" name="notes" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Update Status</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function updateStatus(userId) {
+    document.getElementById('userId').value = userId;
+    document.getElementById('statusModal').style.display = 'flex';
+}
+
+document.getElementById('statusUpdateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const userId = document.getElementById('userId').value;
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch(`/admin/users/${userId}/status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Status updated successfully!', 'success');
+            document.getElementById('statusModal').style.display = 'none';
+            location.reload();
+        } else {
+            showNotification(result.message || 'Failed to update status', 'error');
+        }
+    } catch (error) {
+        showNotification('Network error. Please try again.', 'error');
+    }
+});
+
+function adminLogout() {
+    fetch('/auth/logout', { method: 'POST' })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                window.location.href = result.redirect;
+            }
+        });
+}
+
+// Modal handling
+document.querySelector('.close-modal').addEventListener('click', () => {
+    document.getElementById('statusModal').style.display = 'none';
+});
+
+window.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('statusModal')) {
+        document.getElementById('statusModal').style.display = 'none';
+    }
+});
+</script>
