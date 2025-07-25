@@ -203,10 +203,14 @@ router.get('/updates', requireAdmin, async (req, res) => {
     const totalUpdates = await Update.countDocuments();
     const totalPages = Math.ceil(totalUpdates / limit);
 
-    const updates = await Update.find().populate('author', 'name email').sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const updates = await Update.find()
+      .populate('author', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.render('admin/updates', {
-      title: 'Updates Management - Advanze Travels',
+      title: 'Updates Management - AdvanceTravels',
       admin: req.session.admin,
       updates,
       currentPage: page,
